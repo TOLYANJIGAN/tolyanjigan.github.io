@@ -1,149 +1,155 @@
-/** @jsx React.DOM */
-var Calc = React.createClass({
-  getInitialState: function() {
-    return {
-      recipe: 'basic-grenade',
-      ips: 1,
-    };
-  },
-  changeDataLib: function(ev) {
-    window.location.hash = "#"+ ev.target.value;
-    window.location.reload();
-  },
-  calculate: function() {
-    req = window.calcRequest.call(this.state.recipe, this.state.ips)
-    this.setState({result: req})
-  },
-  setIPS: function(ev) {
-    this.setState({ips:Number(ev.target.value)}, this.calculate)
+"use strict";
+/* global React,ReactDOM,ReactModal,App,_*/
 
-  },
-  setRecipe: function(ev) {
-    this.setState({recipe:ev.target.value}, this.calculate)
-  },
-  render: function() {
-    var result;
+ReactModal.setAppElement('#calc');
+
+var Calculator = App.Calculator;
+var Datasource = App.Datasource;
+var Input = App.Input;
+var Options = App.Options;
+var Ingredients = App.Ingredients;
+var Graph = App.Graph;
+var Explain = App.Explain;
+var Bulk = App.Bulk;
+
+class Calc extends React.Component {
+  state = {
+    input: {recipe: "", ipm: 1 },
+    additionalInputs: [],
+    options: {
+      asslvl: "0.5",
+      smeltlvl: "1",
+      beltlvl: "5.7",
+      difficulty: "normal",
+      alwaysShowDecimals: false
+    },
+    explainingRecipe: null,
+    bulkVisible: false
+  }
+
+  componentDidMount() {
+    this.calculate();
+  }
+
+  calculate() {
+    var inputs = _.map(this.getInputs(), function(input) {
+      return {recipe: input.recipe, ips: input.ipm / 60};
+    });
+    var result = Calculator.calculateAndAnalyze(inputs, this.state.options);
+    this.setState({result: result});
+  }
+
+  setInput = (input) => {
+    this.setState({input:input}, this.calculate);
+  }
+
+  removeRecipe = (recipeName) => {
+    var additionalInputs = _.filter(this.state.additionalInputs, function(input) {
+      return input.recipe != recipeName;
+    });
+    this.setState({
+      additionalInputs: additionalInputs
+    }, this.calculate);
+  }
+
+  addAnother = () => {
+    var additionalInputs = this.state.additionalInputs.concat(this.state.input);
+    this.setState({
+      input: {recipe: "", ipm: 1 },
+      additionalInputs: additionalInputs
+    }, this.calculate);
+  }
+
+  clear = () => {
+    this.setState({
+      input: {recipe: "", ipm: 1 },
+      additionalInputs: []
+    }, this.calculate);
+  }
+
+  setOptions = (options) => {
+    this.setState({options: options }, this.calculate);
+  }
+
+  explain = (recipe) => {
+    this.setState({explainingRecipe: recipe});
+  }
+
+  stopExplain = () => {
+    this.setState({explainingRecipe: null});
+  }
+
+  showBulk = () => {
+    this.setState({bulkVisible: true});
+  }
+
+  hideBulk = () => {
+    this.setState({bulkVisible: false});
+  }
+
+  bulkImport = (recipes) => {
+    this.setState({
+      input: {recipe: "", ipm: 1 },
+      additionalInputs: recipes,
+      bulkVisible: false
+    }, this.calculate);
+  }
+
+  render() {
+    var results, subtotals;
     if (this.state.result) {
-      result = <Req req={this.state.result}/>;
+      var self = this;
+      results = this.state.result.recipes.map(function(recipe) {
+        return (<Ingredients key={recipe.name} req={recipe} ingredients="off" onRemove={recipe.name == self.state.input.recipe ? null : self.removeRecipe} alwaysShowDecimals={self.state.options.alwaysShowDecimals}/>);
+      });
+      subtotals = this.state.result.totals.map(function(total) {
+        return (<Ingredients key={total.name} req={total} ingredients="never" onExplain={self.explain} alwaysShowDecimals={self.state.options.alwaysShowDecimals}/>);
+      });
     }
+    var header = (
+      <div className="req header">
+        <div className="name">
+          Recipe
+        </div>
+        <div className="data">
+          <div className="ips">
+            Items/min
+          </div>
+          <div key="assemblers" className="assemblers">
+            # Assemblers
+          </div>
+          <div key="lines_required" className="lines_required">
+            # Assembly Lines
+          </div>
+        </div>
+      </div>
+    );
+
     return (
-    	<div>
-        <header className="clearfix">
-          <span className="pull-right">
-            Data source:
-            <select
-              value={this.state.currentlib} 
-              onChange={this.changeDataLib}>
-              {this.props.datalibs.map(function(lib){
-                return <option key={lib}>{lib}</option>;
-              })}
-            </select>
-          </span>
-        </header>
-        <p>
-          Calculate the requirements for
-          <input 
-            id="recipe"
-            type="text"
-            list="recipes"
-            placeholder="recipe name"
-            value={this.state.recipe}
-            onChange={this.setRecipe}/>
-          <datalist id="recipes">
-          	{Object.keys(this.props.recipes).map(function(recipe) {
-    	          return <option key={recipe}>{recipe}</option>;
-    	        })}
-          </datalist>
-          producing at a rate of
-          <input
-            id="ips"
-            type="number"
-            value={this.state.ips}
-            onChange={this.setIPS}/>
-          item(s) / second.
-        </p>
-        {result}
+    	<div className="wrapper">
+        <Datasource datalib={this.props.currentlib} datalibs={this.props.datalibs} />
+        <Input input={this.state.input} recipes={this.props.recipes} onChange={this.setInput} onAddAnother={this.addAnother} onClear={this.clear} onBulk={this.showBulk}/>
+        <Options options={this.state.options} onChangeOptions={this.setOptions}/>
+        {header}
+        {results}
+        <h2>Totals</h2>
+        <div className="totals">
+        {header}
+        {subtotals}
+        </div>
+        <h2>Layout</h2>
+        <Graph req={this.state.result} />
+        <Explain recipe={this.state.explainingRecipe} options={this.state.options} onRequestClose={this.stopExplain} />
+        <Bulk bulkVisible={this.state.bulkVisible} inputs={ this.getInputs() } onRequestClose={this.hideBulk} onImport={this.bulkImport} />
     </div>
     );
   }
-});
 
-var Req = React.createClass({
-  render: function() {
-    var inputs, details;
-    if (this.props.req.inputs && this.props.req.inputs.length) {
-      inputs = (
-        <div className="inputs">
-          {this.props.req.inputs.map(function(input){
-            return <Req req={input} />;
-          })}
-        </div>
-      );
-    }
-    if (this.props.req.assemblers) {
-      details = [
-        <div className="assemblers">
-          requires
-          <span className="val">{this.props.req.assemblers.toFixed(2)}</span>
-          assemblers
-        </div>,
-        <div className="lines_required">
-          on
-          <span className="val">{this.props.req.lines_required.toFixed(2)}</span>
-          assembly lines
-        </div>,
-        <div className="recipe-info">
-          (
-          <div className="assembler_max_line">
-            <span className="val">{this.props.req.assembler_max_line.toFixed(2)}</span>
-            max assemblers per line
-          </div>
-          -
-          <div className="cycle_time">
-            cycles every
-            <span className="val">{this.props.req.cycle_time.toFixed(2)}s</span>
-          </div>
-          <div className="ipspa">
-            @
-            <span className="val">{this.props.req.ipspa.toFixed(2)}</span>i/s
-          </div>
-          )
-        </div>
-      ];
+  getInputs() {
+    if (this.state.input.recipe) {
+      return _.union([this.state.input], this.state.additionalInputs);
     } else {
-      details = (
-        <div className="lines_required">
-          on
-          <span className="val">{this.props.req.lines_required.toFixed(2)}</span>
-          assembly lines
-        </div>
-      );
+      return this.state.additionalInputs;
     }
-    return (
-      <div className="req">
-        <div className="name">{this.props.req.name}</div>
-        <div className="data">
-          <div className="ips">@
-            <span className="val ips-val">{this.props.req.ips.toFixed(2)}</span>
-            items/s
-            (or 
-            <span className="val ips-val">{(1.0 / this.props.req.ips).toFixed(2)}</span>
-            s/item)
-          </div>
-          {details}
-        </div>
-        {inputs}
-      </div>
-    );
   }
-});
-
-function renderCalc(recipeData) {
-  React.renderComponent(
-    <Calc
-      recipes={recipeData}
-      datalibs={window.DATALIBS}
-      currentlib={window.CURRENT_LIB}/>,
-    document.getElementById('calc')
-  );	
-}
+};

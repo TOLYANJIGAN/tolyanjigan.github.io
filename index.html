@@ -1,43 +1,86 @@
-<!DOCTYPE html>
-<html>
-<head>
+<!DOCTYPE html> <html> <head>
 	<title>Factorio Calc</title>
 	<script type="text/javascript">
-		DATALIBS = [
-			'core-0-10-0',
-			'core-0-9-8',
-		]
+		window.DATALIBS = [
+			'core-0-15-9',
+			'core-0-15-2',
+			'core-0-14-22',
+			'core-0-14-20',
+			'core-0-13-20',
+			'core-0-13-15',
+			'core-0-12-33',
+			'core-0-11-3',
+			'core-0-10-2',
+			'core-0-9-8'
+		];
+		window.DEFAULT_LIB = window.DATALIBS[0];
+
+		window.App = {}
 	</script>
 	<script type="text/javascript" src="lua.vm.js"></script>
 	<script type="text/javascript" src="ffi.js"></script>
-	<script src="http://fb.me/react-0.10.0.js"></script>
-    <script src="http://fb.me/JSXTransformer-0.10.0.js"></script>
-    <link rel="stylesheet" href="calc.css">
-    <script type="text/jsx" src="calc.jsx"></script>
-    <link href="http://maxcdn.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
+	<script src="https://unpkg.com/react@15/dist/react.js"></script>
+	<script src="https://unpkg.com/react-dom@15/dist/react-dom.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.18.1/babel.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/react-modal/1.7.7/react-modal.js" integrity="sha256-wQ9go2p9/RzvdqC0RzS2djz4aujaK10VA5UnV9A5eXI=" crossorigin="anonymous"></script>
+	<script src="bower_components/d3/d3.min.js"></script>
+	<script src="bower_components/lodash/lodash.js"></script>
+	<script src="bower_components/graphlib/dist/graphlib.core.js"></script>
+	<script src="bower_components/dagre/dist/dagre.core.js"></script>
+	<script src="bower_components/dagre-d3/dist/dagre-d3.core.js"></script>
+	<link rel="stylesheet" href="calc.css">
+	<script type="text/jsx" src="calculator.js"></script>
+	<script type="text/jsx" src="datasource.jsx"></script>
+	<script type="text/jsx" src="input.jsx"></script>
+	<script type="text/jsx" src="options.jsx"></script>
+	<script type="text/jsx" src="ingredients.jsx"></script>
+	<script type="text/jsx" src="graph.jsx"></script>
+	<script type="text/jsx" src="explain.jsx"></script>
+	<script type="text/jsx" src="bulk.jsx"></script>
+	<script type="text/jsx" src="calc.jsx"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 	<script type="text/lua">
 		if #window.location.hash == 0 then
-			window.location.hash = '#core-0-10-0'
+			window.location.hash = '#' .. js.global.DEFAULT_LIB
 		end
 		datalib = window.location.hash:sub(2)
 		js.global.CURRENT_LIB = datalib
-		
+
 		require('dataloader')
 		require('data.'..datalib)
-		require('calc')
 		require('ffi')
-		js.global:renderCalc(to_js_val(data.raw.recipe))
-		function calc_request(recipe, ips)
-			return to_js_val(request(tostring(recipe), ips))
+
+		function js_get_data()
+			return to_js_val(get_data())
 		end
-		js.global.calcRequest = calc_request
+
+		js.global.App.getData = js_get_data
+		js.global.App.luaInitialized = true
+		console('Lua finished')
+
 	</script>
-	
+
+	<script type = "text/jsx">
+		var run = function() {
+			if (App.luaInitialized) {
+		    	App.Calculator.init();
+		    	ReactDOM.render(
+		      		<Calc datalibs={window.DATALIBS} currentlib={window.CURRENT_LIB}/>,
+		      		document.getElementById('calc')
+		    	);
+		  	} else {
+		    	console.log("Waiting for lua...");
+		    	window.setTimeout(run, 50);
+		  	}
+		};
+		run();
+	</script>
 </head>
 <body>
-<ul>
+	<a href="https://github.com/rubyruy/factorio-calc"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png"></a>
+
 	<div id="calc"></div>
-</ul>
+
 
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
